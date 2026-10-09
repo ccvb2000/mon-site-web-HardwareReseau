@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyses & Posts - r/HardwareReseau</title>
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #00ff66;
+            font-family: "Courier New", Courier, monospace;
+            padding: 20px;
+            max-width: 650px;
+            margin: 0 auto;
+        }
+
+        /* Fenêtres style rétro / vintage */
+        .window-box {
+            border: 2px solid #ffffff;
+            border-right-color: #404040;
+            border-bottom-color: #404040;
+            background-color: #111827;
+            margin-top: 20px;
+        }
+
+        .window-header {
+            background: linear-gradient(90deg, #000080, #1084d0);
+            color: #ffffff;
+            font-weight: bold;
+            padding: 8px 12px;
+            font-size: 1.1em;
+        }
+
+        .window-body {
+            padding: 15px;
+        }
+
+        /* Elements du premier bloc (Stats) */
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px dashed #333;
+            font-size: 1em;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-value {
+            color: #ff00ff;
+            font-weight: bold;
+        }
+
+        /* Elements du deuxième bloc (Posts) */
+        .post-item {
+            padding: 10px 0;
+            border-bottom: 1px dashed #333;
+        }
+
+        .post-item:last-child {
+            border-bottom: none;
+        }
+
+        .post-title {
+            color: #00e5ff;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.95em;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .post-title:hover {
+            color: #ff00ff;
+            text-decoration: underline;
+        }
+
+        .post-meta {
+            color: #888;
+            font-size: 0.8em;
+        }
+
+        h1 {
+            color: #00e5ff;
+            text-align: center;
+            font-size: 1.6em;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>[ Dashboard Analyses r/HardwareReseau ]</h1>
+
+    <!-- Bloc 1 : Statistiques Globale -->
+    <div class="window-box">
+        <div class="window-header">📊 Statistiques de la Communauté</div>
+        <div class="window-body">
+            <div class="stat-item">
+                <span>👥 Membres de la communauté :</span>
+                <span class="stat-value" id="stat-members">Chargement...</span>
+            </div>
+            <div class="stat-item">
+                <span>🟢 Visiteurs actuellement en ligne :</span>
+                <span class="stat-value" id="stat-online">Chargement...</span>
+            </div>
+            <div class="stat-item">
+                <span>📜 Nombre de publications analysées :</span>
+                <span class="stat-value" id="stat-posts-count">Chargement...</span>
+            </div>
+            <div class="stat-item">
+                <span>👍 Total de likes / upvotes :</span>
+                <span class="stat-value" id="stat-total-likes">Chargement...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bloc 2 : Liste des Dernières Publications (Même Taille / Style) -->
+    <div class="window-box">
+        <div class="window-header">📜 Publications Recentes</div>
+        <div class="window-body" id="posts-list">
+            Chargement des publications...
+        </div>
+    </div>
+
+    <script>
+        const SUBREDDIT = 'HardwareReseau';
+
+        // 1. Traitement des données "About" (Membres & Connectés)
+        function handleAboutResponse(response) {
+            try {
+                if (response && response.data) {
+                    const data = response.data;
+                    document.getElementById('stat-members').textContent = data.subscribers ? data.subscribers.toLocaleString('fr-FR') : '0';
+                    document.getElementById('stat-online').textContent = data.active_user_count !== undefined ? data.active_user_count.toLocaleString('fr-FR') : '0';
+                } else {
+                    throw new Error("Données manquantes");
+                }
+            } catch (e) {
+                document.getElementById('stat-members').textContent = 'Indisponible';
+                document.getElementById('stat-online').textContent = 'Indisponible';
+            }
+        }
+
+        // 2. Traitement des données "Posts" (Calcul des likes + Génération de la liste)
+        function handlePostsResponse(response) {
+            const postsListContainer = document.getElementById('posts-list');
+            try {
+                if (response && response.data && response.data.children) {
+                    const posts = response.data.children;
+                    const totalPosts = posts.length;
+                    let totalLikes = 0;
+
+                    // Mise à jour du bloc d'analyses
+                    posts.forEach(item => {
+                        totalLikes += item.data.score || 0;
+                    });
+
+                    document.getElementById('stat-posts-count').textContent = totalPosts.toLocaleString('fr-FR');
+                    document.getElementById('stat-total-likes').textContent = totalLikes.toLocaleString('fr-FR');
+
+                    // Remplissage du deuxième bloc (Liste des posts)
+                    if (totalPosts === 0) {
+                        postsListContainer.innerHTML = 'Aucune publication trouvée.';
+                        return;
+                    }
+
+                    let postsHtml = '';
+                    // On affiche jusqu'à 10 publications récentes
+                    posts.slice(0, 10).forEach(item => {
+                        const post = item.data;
+                        postsHtml += `
+                            <div class="post-item">
+                                <a class="post-title" href="https://www.reddit.com${post.permalink}" target="_blank">💬 ${post.title}</a>
+                                <div class="post-meta">
+                                    Par u/${post.author} | 👍 ${post.score} upvotes | 💬 ${post.num_comments} commentaires
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    postsListContainer.innerHTML = postsHtml;
+
+                } else {
+                    throw new Error("Données manquantes");
+                }
+            } catch (e) {
+                document.getElementById('stat-posts-count').textContent = 'Indisponible';
+                document.getElementById('stat-total-likes').textContent = 'Indisponible';
+                postsListContainer.innerHTML = 'Impossible de charger les publications.';
+            }
+        }
+
+        // Injection des scripts JSONP
+        function loadJSONP(url) {
+            const script = document.createElement('script');
+            script.src = url;
+            script.onerror = function() {
+                console.error("Erreur de chargement du script JSONP pour " + url);
+            };
+            document.body.appendChild(script);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadJSONP(`https://www.reddit.com/r/${SUBREDDIT}/about.json?jsonp=handleAboutResponse`);
+            loadJSONP(`https://www.reddit.com/r/${SUBREDDIT}/new.json?limit=100&jsonp=handlePostsResponse`);
+        });
+    </script>
+</body>
+</html>
